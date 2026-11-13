@@ -21,12 +21,25 @@ from calculations import simulate, parametric_study
 
 
 # =========================================
-# CONFIGURATION GENERALE
+# CONFIGURATION DES CHEMINS
 # =========================================
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
-DATABASE_PATH = BASE_DIR / "processsim.db"
+
+IS_VERCEL = os.environ.get("VERCEL") == "1"
+
+if IS_VERCEL:
+    DATABASE_PATH = Path("/tmp/processsim.db")
+else:
+    DATABASE_PATH = BASE_DIR / "processsim.db"
+
+DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+
+# =========================================
+# CONFIGURATION DE L'APPLICATION
+# =========================================
 
 SECRET_KEY = os.environ.get(
     "SECRET_KEY",
@@ -45,7 +58,7 @@ app.add_middleware(
     session_cookie="processsim_session",
     max_age=60 * 60 * 24 * 7,
     same_site="lax",
-    https_only=False
+    https_only=IS_VERCEL
 )
 
 password_hash = PasswordHash.recommended()
@@ -56,8 +69,14 @@ password_hash = PasswordHash.recommended()
 # =========================================
 
 def get_connection():
-    conn = sqlite3.connect(DATABASE_PATH)
+
+    conn = sqlite3.connect(
+        str(DATABASE_PATH),
+        timeout=30
+    )
+
     conn.row_factory = sqlite3.Row
+
     return conn
 
 
@@ -90,11 +109,15 @@ def create_tables():
             )
         """)
 
-        # Migration : ajout de user_id si la table existe déjà
         cursor.execute("PRAGMA table_info(simulations)")
-        columns = [row["name"] for row in cursor.fetchall()]
+
+        columns = [
+            row["name"]
+            for row in cursor.fetchall()
+        ]
 
         if "user_id" not in columns:
+
             cursor.execute("""
                 ALTER TABLE simulations
                 ADD COLUMN user_id INTEGER REFERENCES users(id)
@@ -105,6 +128,7 @@ def create_tables():
 
 @app.on_event("startup")
 def startup_event():
+
     create_tables()
 
 
@@ -115,18 +139,40 @@ def startup_event():
 class SimulationInput(BaseModel):
 
     Cp: float = Field(default=3.8, gt=0)
-    lambda_: float = Field(default=2300, gt=0, alias="lambda")
+
+    lambda_: float = Field(
+        default=2300,
+        gt=0,
+        alias="lambda"
+    )
 
     m0: float = Field(default=1000, gt=0)
-    x0: float = Field(default=10, ge=0, le=100)
+
+    x0: float = Field(
+        default=10,
+        ge=0,
+        le=100
+    )
+
     residus: float = Field(default=20, ge=0)
 
     mR: float = Field(default=100, ge=0)
-    xR: float = Field(default=40, ge=0, le=100)
+
+    xR: float = Field(
+        default=40,
+        ge=0,
+        le=100
+    )
 
     T2: float = 20
     T3: float = 80
-    x4: float = Field(default=40, gt=0, le=100)
+
+    x4: float = Field(
+        default=40,
+        gt=0,
+        le=100
+    )
+
     T5: float = 25
 
     @model_validator(mode="after")
@@ -172,10 +218,25 @@ class SimulationInput(BaseModel):
 
 class SignUpInput(BaseModel):
 
-    username: str = Field(min_length=3, max_length=50)
-    email: str = Field(min_length=5, max_length=150)
-    password: str = Field(min_length=8, max_length=128)
-    confirm_password: str = Field(min_length=8, max_length=128)
+    username: str = Field(
+        min_length=3,
+        max_length=50
+    )
+
+    email: str = Field(
+        min_length=5,
+        max_length=150
+    )
+
+    password: str = Field(
+        min_length=8,
+        max_length=128
+    )
+
+    confirm_password: str = Field(
+        min_length=8,
+        max_length=128
+    )
 
     @model_validator(mode="after")
     def verifier_inscription(self):
@@ -184,16 +245,22 @@ class SignUpInput(BaseModel):
         self.email = self.email.strip().lower()
 
         if not self.username:
-            raise ValueError("Le nom d'utilisateur est obligatoire.")
+            raise ValueError(
+                "Le nom d'utilisateur est obligatoire."
+            )
 
         if not re.fullmatch(
             r"[^@\s]+@[^@\s]+\.[^@\s]+",
             self.email
         ):
-            raise ValueError("Adresse email invalide.")
+            raise ValueError(
+                "Adresse email invalide."
+            )
 
         if self.password != self.confirm_password:
-            raise ValueError("Les mots de passe ne correspondent pas.")
+            raise ValueError(
+                "Les mots de passe ne correspondent pas."
+            )
 
         return self
 
@@ -304,7 +371,6 @@ def signin(data: SignInInput, request: Request):
             detail="Email ou mot de passe incorrect."
         )
 
-    # Création de la session
     request.session.clear()
     request.session["user_id"] = user["id"]
 
@@ -417,9 +483,15 @@ def health():
 # ENREGISTREMENT D'UNE SIMULATION
 # =========================================
 
-def enregistrer_simulation(parametres, resultats, user_id=None):
+def enregistrer_simulation(
+    parametres,
+    resultats,
+    user_id=None
+):
 
-    date_actuelle = datetime.now(timezone.utc).isoformat()
+    date_actuelle = datetime.now(
+        timezone.utc
+    ).isoformat()
 
     with closing(get_connection()) as conn:
 
@@ -435,8 +507,14 @@ def enregistrer_simulation(parametres, resultats, user_id=None):
             VALUES (?, ?, ?, ?)
         """, (
             date_actuelle,
-            json.dumps(parametres, ensure_ascii=False),
-            json.dumps(resultats, ensure_ascii=False),
+            json.dumps(
+                parametres,
+                ensure_ascii=False
+            ),
+            json.dumps(
+                resultats,
+                ensure_ascii=False
+            ),
             user_id
         ))
 
@@ -452,7 +530,10 @@ def enregistrer_simulation(parametres, resultats, user_id=None):
 # =========================================
 
 @app.post("/api/simulate")
-def run_simulation(data: SimulationInput, request: Request):
+def run_simulation(
+    data: SimulationInput,
+    request: Request
+):
 
     try:
 
@@ -509,7 +590,10 @@ def run_parametric_study(data: SimulationInput):
 
     except Exception as e:
 
-        print("ERREUR ETUDE PARAMETRIQUE :", repr(e))
+        print(
+            "ERREUR ETUDE PARAMETRIQUE :",
+            repr(e)
+        )
 
         raise HTTPException(
             status_code=500,
@@ -608,7 +692,10 @@ def delete_simulation(
             cursor.execute("""
                 DELETE FROM simulations
                 WHERE id = ? AND user_id = ?
-            """, (simulation_id, user_id))
+            """, (
+                simulation_id,
+                user_id
+            ))
 
         else:
 
