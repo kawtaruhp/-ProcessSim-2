@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ProcessSim - Simulation des procédés</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        [hidden] { display: none !important; }
+
+        .auth-section {
+            max-width: 520px;
+            margin: 35px auto;
+        }
+
+        .auth-form {
+            display: grid;
+            gap: 14px;
+        }
+
+        .auth-form .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .auth-form input {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 11px;
+        }
+
+        .auth-switch {
+            margin-top: 16px;
+            text-align: center;
+        }
+
+        .auth-switch button {
+            border: 0;
+            background: none;
+            color: #1769aa;
+            cursor: pointer;
+            text-decoration: underline;
+            font: inherit;
+        }
+
+        .auth-bar {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 14px;
+            padding: 10px 0;
+        }
+
+        .auth-bar button {
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+
+    <header class="header">
+        <div class="container">
+            <h1>ProcessSim</h1>
+            <p>Modélisation et simulation des procédés</p>
+
+            <div id="authBar" class="auth-bar" hidden>
+                <span id="authUser"></span>
+                <button type="button" id="logoutButton" class="btn-secondary">
+                    Déconnexion
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Interface de connexion et de création de compte -->
+    <section id="authSection" class="container section auth-section">
+        <h2>Bienvenue sur ProcessSim</h2>
+        <p>Connectez-vous pour accéder à votre espace de simulation.</p>
+
+        <form id="loginForm" class="auth-form">
+            <h3>Connexion</h3>
+
+            <div class="form-group">
+                <label for="loginEmail">Adresse e-mail</label>
+                <input
+                    type="email"
+                    id="loginEmail"
+                    name="email"
+                    autocomplete="email"
+                    required
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="loginPassword">Mot de passe</label>
+                <input
+                    type="password"
+                    id="loginPassword"
+                    name="password"
+                    autocomplete="current-password"
+                    required
+                >
+            </div>
+
+            <button type="submit" class="btn-primary">
+                Se connecter
+            </button>
+
+            <p class="auth-switch">
+                Vous n'avez pas de compte ?
+                <button type="button" id="showSignup">Créer un compte</button>
+            </p>
+        </form>
+
+        <form id="signupForm" class="auth-form" hidden>
+            <h3>Créer un compte</h3>
+
+            <div class="form-group">
+                <label for="signupUsername">Nom d'utilisateur</label>
+                <input
+                    type="text"
+                    id="signupUsername"
+                    name="username"
+                    autocomplete="username"
+                    minlength="3"
+                    required
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="signupEmail">Adresse e-mail</label>
+                <input
+                    type="email"
+                    id="signupEmail"
+                    name="email"
+                    autocomplete="email"
+                    required
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="signupPassword">Mot de passe</label>
+                <input
+                    type="password"
+                    id="signupPassword"
+                    name="new-password"
+                    autocomplete="new-password"
+                    minlength="8"
+                    required
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="signupConfirmPassword">Confirmer le mot de passe</label>
+                <input
+                    type="password"
+                    id="signupConfirmPassword"
+                    name="confirm-password"
+                    autocomplete="new-password"
+                    minlength="8"
+                    required
+                >
+            </div>
+
+            <button type="submit" class="btn-primary">
+                Créer mon compte
+            </button>
+
+            <p class="auth-switch">
+                Vous avez déjà un compte ?
+                <button type="button" id="showLogin">Se connecter</button>
+            </p>
+        </form>
+
+        <p id="authMessage" class="message" aria-live="polite"></p>
+    </section>
+
+    <!-- Application principale : visible après connexion -->
+    <main id="appContent" class="container" hidden>
+
+        <section class="section">
+            <h2>Simulation de concentration du jus de fruits</h2>
+            <p>
+                Cette application permet de simuler un procédé industriel
+                comprenant la filtration, le mélange, le chauffage,
+                l'évaporation et le refroidissement.
+            </p>
+        </section>
+
+        <section class="section">
+            <h2>1. Paramètres de simulation</h2>
+
+            <form id="simulationForm">
+                <div class="form-grid">
+
+                    <div class="form-group">
+                        <label for="m0">Débit initial m0 (kg/h)</label>
+                        <input type="number" id="m0" value="1000" min="0.01" step="any" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="x0">Concentration initiale x0 (%)</label>
+                        <input type="number" id="x0" value="10" min="0.01" max="100" step="any" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="residus">Résidus de filtration (kg/h)</label>
+                        <input type="number" id="residus" value="20" min="0" step="any" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="mR">Débit ajouté mR (kg/h)</label>
+                        <input type="number" id="mR" value="100" min="0.01" step="any" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="xR">Concentration ajoutée xR (%)</label>
+                        <input type="number" id="xR" value="40" min="0" max="100" step="any" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="Cp">Capacité thermique Cp (kJ/kg.K)</label>
+                        <input type="number" id="Cp" value="3.8" min="0.01" step="any" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="T2">Température initiale T2 (°C)</label>
+                        <input type="number" id="T2" value="20" min="0" step="any" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="T3">Température de chauffage T3 (°C)</label>
+                        <input type="number" id="T3" value="80" min="0.01" step="any" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="x4">Concentration finale x4 (%)</label>
+                        <input type="number" id="x4" value="40" min="0.01" max="100" step="any" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="lambda">Chaleur latente λ (kJ/kg)</label>
+                        <input type="number" id="lambda" value="2300" min="0.01" step="any" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="T5">Température finale T5 (°C)</label>
+                        <input type="number" id="T5" value="25" min="0" step="any" required>
+                    </div>
+
+                </div>
+
+                <div class="buttons">
+                    <button type="submit" class="btn-primary">
+                        Lancer la simulation
+                    </button>
+                </div>
+            </form>
+
+            <div id="message" class="message" aria-live="polite">
+                Entrez les paramètres puis lancez la simulation.
+            </div>
+        </section>
+
+        <section class="section">
+            <h2>2. Résultats de simulation</h2>
+            <div id="results" class="results-grid"></div>
+        </section>
+
+        <section class="section">
+            <h2>3. Bilan de matière</h2>
+            <div id="balance" class="results-grid"></div>
+        </section>
+
+        <section class="section">
+            <div class="history-header">
+                <h2>4. Historique des simulations</h2>
+                <button type="button" id="refreshHistory" class="btn-secondary">
+                    Actualiser
+                </button>
+            </div>
+
+            <p id="historyMessage" class="history-message" aria-live="polite">
+                Chargement de l'historique...
+            </p>
+
+            <div class="table-container">
+                <table class="history-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Date</th>
+                            <th>Débit initial (kg/h)</th>
+                            <th>Concentration initiale (%)</th>
+                            <th>Débit final (kg/h)</th>
+                            <th>Vapeur évaporée (kg/h)</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyBody"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="section">
+            <h2>5. Étude paramétrique</h2>
+
+            <div class="chart-container">
+                <h3>Influence de la concentration finale sur la vapeur évaporée</h3>
+                <canvas id="evaporationChart"></canvas>
+            </div>
+
+            <div class="chart-container">
+                <h3>Influence de la température sur la puissance de chauffage</h3>
+                <canvas id="heatingChart"></canvas>
+            </div>
+
+            <div class="chart-container">
+                <h3>Comparaison des puissances thermiques</h3>
+                <canvas id="powerChart"></canvas>
+            </div>
+        </section>
+
+    </main>
+
+    <footer>
+        <p>ProcessSim © 2026 - Modélisation et simulation des procédés</p>
+    </footer>
+
+    <script src="/static/app.js"></script>
+
+</body>
+</html>
